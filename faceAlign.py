@@ -293,15 +293,15 @@ if __name__ == '__main__':
                 resultAcc[str(x)][str(y)] += 1
 
         xValues = sorted(resultAcc.iterkeys())
-        print '\t',
-        for y in sorted(resultAcc[xValues[0]]):
+        print '****\t',
+        for y in sorted([int(i) for i in resultAcc[xValues[0]]]):
             print y, '\t',
         print 'minNeighbours'
 
         for x in sorted(resultAcc.iterkeys()):
             print x, '\t',
-            for y in sorted(resultAcc[x].iterkeys()):
-                print resultAcc[x][y], '\t',
+            for y in sorted([int(i) for i in resultAcc[xValues[0]]]):
+                print resultAcc[x][str(y)], '\t',
             print ''
         print 'scaleFactor'
 
