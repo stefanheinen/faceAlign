@@ -126,20 +126,23 @@ def findTransforms(images, referenceEyepairCoordinates):
         scaleFactor = veclength(destEye0Eye1Vect) / veclength(srcEye0Eye1Vect)
 
         transform = (destEyePair[0], translation, rotation, scaleFactor)
+        images[i]['transform'] = transform
         logging.info('\t"{}")'.format(transform))
         transforms.append(transform)
     return transforms
 
 
-def applyTransform(image, transform):
-    logging.info('Applying transform to "{}")'.format(image['srcPath']))
-    rows, cols, colors = image['npImageArray'].shape
-    M = np.float32([[1, 0, transform[1][0]], [0, 1, transform[1][1]]])
-    dst = cv2.warpAffine(image['npImageArray'], M, (cols, rows))
+def applyTransforms(images):
+    for image in images:
+        transform = image['transform']
+        logging.info('Applying transform to "{}")'.format(image['srcPath']))
+        rows, cols, colors = image['npImageArray'].shape
+        M = np.float32([[1, 0, transform[1][0]], [0, 1, transform[1][1]]])
+        dst = cv2.warpAffine(image['npImageArray'], M, (cols, rows))
 
-    rotationM = cv2.getRotationMatrix2D(transform[0], float(transform[2]), float(transform[3]))
-    image['npImageArray'] = cv2.warpAffine(dst, rotationM, (cols, rows))
-    logging.info('\tDONE')
+        rotationM = cv2.getRotationMatrix2D(transform[0], float(transform[2]), float(transform[3]))
+        image['npImageArray'] = cv2.warpAffine(dst, rotationM, (cols, rows))
+        logging.info('\tDONE')
 
 
 def loadImages(paths):
@@ -327,10 +330,9 @@ if __name__ == '__main__':
         if drawDebug:
             drawEyePositions(images)
 
-        transforms = findTransforms(images, referenceEyepairCoordinates)
+        findTransforms(images, referenceEyepairCoordinates)
 
-        for i in range(len(images)):
-            applyTransform(images[i], transforms[i])
+        applyTransforms(images)
 
         for i in range(len(images)):
             outputFilename = args.outputPrefix + str(i) + '.jpg'
@@ -347,88 +349,3 @@ if __name__ == '__main__':
             outputFilename = 'Average.jpg'
             outputPath = os.path.join(args.outputDir, outputFilename)
             cv2.imwrite(outputPath, blendedImage)
-
-
-    exit(0)
-
-    for i in range(len(images)):
-        applyTransform(images[i], transforms[i])
-        # if k == 0:
-        #     blendedImage = transformedImage
-        # else:
-        #     print k
-        #     print 1.0 / (k + 1.0)
-        #     print k / (k + 1.0)
-        #     blendedImage = cv2.addWeighted(transformedImage, 1.0 / (k + 1.0), blendedImage, k / (k + 1.0), 0.0)
-
-    for i in range(len(images)):
-        outputFilename = args.outputPrefix + str(i) + '.jpg'
-        outputPath = os.path.join(args.outputDir, outputFilename)
-        cv2.imwrite(outputPath, images[i]['npImageArray']);
-
-
-        # for i in range(1000):
-        #     index = i % len(images)
-        #     cv2.imshow('transformed {}'.format(index), images[index]['npImageArray'])
-        #     cv2.waitKey(200)
-        #     cv2.destroyAllWindows()
-        # cv2.waitKey(0)
-
-
-        # # command line argument magic
-        # parser = argparse.ArgumentParser(
-        #     description="This script takes a directory, scans it recursively and puts the media files into "
-        #                 "an html file for viewing")
-        # parser.add_argument('-x', '--excludeDirs', nargs='+', default=[])
-        # parser.add_argument('-bf', '--blacklistFilePatterns', nargs='+', default=[])
-        # parser.add_argument('-wf', '--whitelistFilePatterns', nargs='+', default=['*.[Jj][Pp][Gg]', '*.[Jj][Pp][Ee][Gg]',
-        #                                                                           '*.[Pp][Nn][Gg]', '*.[Gg][Ii][Ff]',
-        #                                                                           '*.[Mm][Pp]4', '*.[Mm][Oo][Vv]'])
-        # parser.add_argument('-t', '--template', default='templates/overview.html.template')
-        # parser.add_argument('--allowUserCat', default='no',
-        #                     help='Normally all pictures which have a canon user category set are excluded. '
-        #                          'Set this to true to include them')
-        # parser.add_argument('-iGps', '--interpolateGps', default='no', help='Set to yes if you want to calculate'
-        #                                                                     'interpolated gps positions for pictures'
-        #                                                                     'without gps data.')
-        # parser.add_argument('-f', '--filter', nargs='+', default=[])
-        # parser.add_argument('-s', '--sortBy', default='')
-        # parser.add_argument('-g', '--grouping', default='allInOne=default')
-        # parser.add_argument('-sg', '--sortGroups', default='A#name')
-        # parser.add_argument('-gtf', '--groupsToFiles', default='groupname')
-        # parser.add_argument('-b', '--breadcrumbs', nargs='+', default=[])
-        # parser.add_argument('-p', '--pageTitlePrefix', default='')
-        # parser.add_argument('-o', '--outputFolder')
-        # parser.add_argument('dir', nargs='+')
-        # args = parser.parse_args()
-        #
-        # if args.outputFolder:
-        #     outdir = os.path.abspath(os.path.expanduser(args.outputFolder))
-        # else:
-        #     outdir = os.path.abspath(os.path.expanduser(args.dir[0]))
-        #
-        # if args.allowUserCat.lower() in ("yes", "true", "t", "1"):
-        #     allowUserCat = True
-        # else:
-        #     allowUserCat = False
-        #
-        # if args.interpolateGps.lower() in ("yes", "true", "t", "1"):
-        #     interpolateGps = True
-        # else:
-        #     interpolateGps = False
-        #
-        # importParameters = {
-        #     'excludeDirs': args.excludeDirs,
-        #     'whitelistFilePatterns': args.whitelistFilePatterns,
-        #     'blacklistFilePatterns': args.blacklistFilePatterns,
-        #     'filters': args.filter,
-        #     'grouping': args.grouping,
-        #     'sortGroups': args.sortGroups,
-        #     'groupsToFiles': args.groupsToFiles,
-        #     'sortBy': args.sortBy,
-        #     'pageTitlePrefix': args.pageTitlePrefix,
-        #     'breadcrumbs': args.breadcrumbs,
-        #     'interpolateGpsPosition': interpolateGps
-        # }
-        #
-        # createGalleryHtml(args.dir, args.template, outdir, allowUserCat, importParameters=importParameters)
