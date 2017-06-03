@@ -152,6 +152,14 @@ def loadImages(paths):
     return images
 
 
+def removeImagesNotTwoEyes(images):
+    for image in list(images):
+        if len(image['eyeCoordinates']) is not 2:
+            logging.warning(
+                '{} eyes found in image "{}". Deleting.'.format(len(image['eyeCoordinates']), image['srcPath']))
+            images.remove(image)
+
+
 def drawEyePositions(images):
     for imageIndex, image in enumerate(images):
         for eyeCoordinateIndex, eyeCoordinate in enumerate(image['eyeCoordinates']):
@@ -234,7 +242,7 @@ if __name__ == '__main__':
 
     if args.referenceImage is not None:
         referenceImage = loadImages([args.referenceImage])[0]
-        findFaces([referenceImage])
+        findFaces([referenceImage], face_cascade)
         if len(referenceImage['faceAreas']) is not 1:
             logging.error('{} faces found in reference image "{}". Aborting.'.format(len(referenceImage['faceAreas']),
                                                                                      referenceImage['srcPath']))
@@ -314,13 +322,7 @@ if __name__ == '__main__':
         findEyes(images, eye_cascade, scaleFactor=eyeC_scaleF, minNeighbours=eyeC_minNeighbours)
 
         # if you have more or less than two eyes we have a problem
-        removeImages = []
-        for image in images:
-            if len(image['eyeCoordinates']) is not 2:
-                logging.warning(
-                    '{} eyes found in image "{}". Deleting.'.format(len(image['eyeCoordinates']), image['srcPath']))
-                removeImages.append(image['srcPath'])
-        images = [i for i in images if not i['srcPath'] in removeImages]
+        removeImagesNotTwoEyes(images)
 
         if drawDebug:
             drawEyePositions(images)
