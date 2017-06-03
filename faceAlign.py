@@ -155,6 +155,20 @@ def loadImages(paths):
     return images
 
 
+def writeImages(images, outputDir, outputPrefix):
+    if not os.path.exists(outputDir):
+        logging.error('Output directory "{}" does not exist.'.format(outputDir))
+        return None
+    if not os.path.isdir(outputDir):
+        logging.error('Output path "{}" is not a directory.'.format(outputDir))
+        return None
+
+    for i in range(len(images)):
+        outputFilename = outputPrefix + str(i) + '.jpg'
+        outputPath = os.path.join(outputDir, outputFilename)
+        cv2.imwrite(outputPath, images[i]['npImageArray'])
+
+
 def removeImagesNotTwoEyes(images):
     for image in list(images):
         if len(image['eyeCoordinates']) is not 2:
@@ -222,6 +236,9 @@ if __name__ == '__main__':
 
     args = parser.parse_args()
 
+    outputDir = args.outputDir
+    outputPrefix = args.outputPrefix
+
     drawDebug = args.drawDebug
     inputImagePaths = args.images
 
@@ -288,12 +305,6 @@ if __name__ == '__main__':
         print results
         print ""
 
-        # resultsX = []
-        # resultsY = []
-        # for result in results:
-        #     resultsX.append(result[0])
-        #     resultsY.append(result[1])
-
         resultAcc = {}
         for (x, y, n) in results:
             if not str(x) in resultAcc:
@@ -334,18 +345,4 @@ if __name__ == '__main__':
 
         applyTransforms(images)
 
-        for i in range(len(images)):
-            outputFilename = args.outputPrefix + str(i) + '.jpg'
-            outputPath = os.path.join(args.outputDir, outputFilename)
-            cv2.imwrite(outputPath, images[i]['npImageArray'])
-
-        if args.average:
-            for i in range(len(images)):
-                if i == 0:
-                    blendedImage = images[i]['npImageArray']
-                else:
-                    blendedImage = cv2.addWeighted(images[i]['npImageArray'], 1.0 / (i + 1.0), blendedImage, i / (i + 1.0), 0.0)
-
-            outputFilename = 'Average.jpg'
-            outputPath = os.path.join(args.outputDir, outputFilename)
-            cv2.imwrite(outputPath, blendedImage)
+        writeImages(images, outputDir, outputPrefix)
