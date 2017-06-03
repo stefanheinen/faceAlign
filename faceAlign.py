@@ -18,7 +18,6 @@ import numpy as np
 
 logging.basicConfig(level=logging.INFO, format='%(asctime)s - %(levelname)s - %(message)s')
 
-
 class bcolors:
     HEADER = '\033[95m'
     OKBLUE = '\033[94m'
@@ -42,12 +41,7 @@ def green(s):
     return bcolors.OKGREEN + s + bcolors.ENDC
 
 
-# cascade initialization
-face_cascade = cv2.CascadeClassifier('haarcascade_frontalface_default.xml')
-eye_cascade = cv2.CascadeClassifier('haarcascade_eye.xml')
-
-
-def findEyes(images, scaleFactor=1.07, minNeighbours=9):
+def findEyes(images, cascade, scaleFactor=1.07, minNeighbours=9):
     for i, image in enumerate(images):
         image['eyeCoordinates'] = []
         logging.info('Finding eyes for ({:04d}/{:04d}) "{}")'.format(i, len(images), image['srcPath']))
@@ -55,7 +49,7 @@ def findEyes(images, scaleFactor=1.07, minNeighbours=9):
         for (x, y, w, h) in faces:
             roi = image['npImageArray'][y:y + h, x:x + w]
 
-            eyes = eye_cascade.detectMultiScale(roi, scaleFactor, minNeighbours)
+            eyes = cascade.detectMultiScale(roi, scaleFactor, minNeighbours)
             for (ex, ey, ew, eh) in eyes:
                 exc = x + ex + ew / 2
                 eyc = y + ey + eh / 2
@@ -65,14 +59,14 @@ def findEyes(images, scaleFactor=1.07, minNeighbours=9):
         image['eyeCoordinates'].sort(key=lambda coord: coord[0])
 
 
-def testFindEyes(images, scaleFactorList, minNeighboursList):
+def testFindEyes(images, cascade, scaleFactorList, minNeighboursList):
     results = []
     for image in images[:]:
         logging.info('image: {}'.format(image['srcPath']))
         for scaleFactor in scaleFactorList:
             logging.info('\tscaleFactor: {:03.2f}'.format(scaleFactor))
             for minNeighbours in minNeighboursList:
-                findEyes([image], scaleFactor, minNeighbours)
+                findEyes([image], cascade, scaleFactor, minNeighbours)
                 logging.info(
                     '\t\tminNeighbours: {:03.2f}. Found: {}'.format(minNeighbours, len(image['eyeCoordinates'])))
                 results.append((scaleFactor, minNeighbours, image['eyeCoordinates']))
@@ -80,11 +74,11 @@ def testFindEyes(images, scaleFactorList, minNeighboursList):
     return results
 
 
-def findFaces(images, scaleFactor=1.3, minNeighbours=5):
+def findFaces(images, cascade, scaleFactor=1.3, minNeighbours=5):
     for i, image in enumerate(images):
         image['faceAreas'] = []
         logging.info('Finding face for ({:04d}/{:04d}) "{}")'.format(i, len(images), image['srcPath']))
-        faces = face_cascade.detectMultiScale(image['npImageArray'], scaleFactor, minNeighbours)
+        faces = cascade.detectMultiScale(image['npImageArray'], scaleFactor, minNeighbours)
         for (x, y, w, h) in faces:
             image['faceAreas'].append((x, y, w, h))
 
@@ -169,6 +163,7 @@ def drawEyePositions(images):
 
 if __name__ == '__main__':
     import argparse
+    scriptPath = os.path.dirname(os.path.realpath(__file__))
 
     # command line argument magic
     parser = argparse.ArgumentParser(description="This script takes images of faces and tries to align the eyes")
@@ -178,6 +173,12 @@ if __name__ == '__main__':
     parser.add_argument('-r', '--referenceImage', help='Image from which to take the eye position.')
     parser.add_argument('-ep', '--eyePosition', nargs=4, help='Where to place the eyes. Requires four coordinates:'
                                                               'x1 y1 x2 y2')
+
+    parser.add_argument('-fc', '--faceCascade', default=os.path.join(scriptPath, 'haarcascade_frontalface_default.xml'),
+                        help='The file containing the Haarcascade for detecting the face.')
+    parser.add_argument('-ec', '--eyeCascade', default=os.path.join(scriptPath, 'haarcascade_eye.xml'),
+                        help='The file containing the Haarcascade for detecting the eyes.')
+
     parser.add_argument('-dd', '--drawDebug', action="store_true",
                         help='Set to yes to draw debug information into images.')
     parser.add_argument('-ecsf', '--eyeCascadeScaleFactor', default=1.07,
@@ -218,6 +219,12 @@ if __name__ == '__main__':
     faceC_scaleF = float(args.faceCascadeScaleFactor)
     faceC_minNeighbours = int(args.faceCascadeMinimumNeighbours)
 
+    # cascade initialization
+    faceCascadePath = args.faceCascade
+    eyeCascadePath = args.eyeCascade
+    face_cascade = cv2.CascadeClassifier(faceCascadePath)
+    eye_cascade = cv2.CascadeClassifier(eyeCascadePath)
+
     testFindEyes_scaleFactorRange = np.arange(float(args.findEyeCascadeParametersScaleFactorRange[0]),
                                               float(args.findEyeCascadeParametersScaleFactorRange[1]),
                                               float(args.findEyeCascadeParametersScaleFactorRange[2]))
@@ -233,7 +240,7 @@ if __name__ == '__main__':
                                                                                      referenceImage['srcPath']))
             raise Exception
 
-        findEyes([referenceImage])
+        findEyes([referenceImage], eye_cascade)
         if len(referenceImage['eyeCoordinates']) is not 2:
             logging.error(
                 '{} eyes found in reference image "{}". Aborting.'.format(len(referenceImage['eyeCoordinates']),
@@ -248,23 +255,23 @@ if __name__ == '__main__':
 
     if args.findFaces:
         images = loadImages(inputImagePaths)
-        findFaces(images, scaleFactor=faceC_scaleF, minNeighbours=faceC_minNeighbours)
+        findFaces(images, face_cascade, scaleFactor=faceC_scaleF, minNeighbours=faceC_minNeighbours)
 
         for i in images:
             print({k: i[k] for k in ['srcPath', 'faceAreas']})
 
     if args.findEyes:
         images = loadImages(inputImagePaths)
-        findFaces(images)
-        findEyes(images, scaleFactor=eyeC_scaleF, minNeighbours=eyeC_minNeighbours)
+        findFaces(images, face_cascade)
+        findEyes(images, eye_cascade, scaleFactor=eyeC_scaleF, minNeighbours=eyeC_minNeighbours)
 
         for i in images:
             print({k: i[k] for k in ['srcPath', 'eyeCoordinates']})
 
     if args.findEyeCascadeParameters:
         images = loadImages(inputImagePaths)
-        findFaces(images)
-        results = testFindEyes(images, list(testFindEyes_scaleFactorRange), list(testFindEyes_minimumNeighboursRange))
+        findFaces(images, face_cascade)
+        results = testFindEyes(images, eye_cascade, list(testFindEyes_scaleFactorRange), list(testFindEyes_minimumNeighboursRange))
 
         print "Raw results:"
         print results
@@ -303,8 +310,8 @@ if __name__ == '__main__':
             parser.error('Please specify an output dir with --outputDir')
 
         images = loadImages(inputImagePaths)
-        findFaces(images, scaleFactor=faceC_scaleF, minNeighbours=faceC_minNeighbours)
-        findEyes(images, scaleFactor=eyeC_scaleF, minNeighbours=eyeC_minNeighbours)
+        findFaces(images, face_cascade, scaleFactor=faceC_scaleF, minNeighbours=faceC_minNeighbours)
+        findEyes(images, eye_cascade, scaleFactor=eyeC_scaleF, minNeighbours=eyeC_minNeighbours)
 
         # if you have more or less than two eyes we have a problem
         removeImages = []
@@ -333,9 +340,6 @@ if __name__ == '__main__':
                 if i == 0:
                     blendedImage = images[i]['npImageArray']
                 else:
-                    print i
-                    print 1.0 / (i + 1.0)
-                    print i / (i + 1.0)
                     blendedImage = cv2.addWeighted(images[i]['npImageArray'], 1.0 / (i + 1.0), blendedImage, i / (i + 1.0), 0.0)
 
             outputFilename = 'Average.jpg'
